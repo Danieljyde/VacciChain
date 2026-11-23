@@ -32,3 +32,8 @@ venv/
 # IDE
 .vscode/
 .idea/
+
+# Test snapshots
+__snapshots__/
+*.snap
+test_snapshots/
