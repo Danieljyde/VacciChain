@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import NavBar from './NavBar';
 
@@ -46,6 +46,37 @@ describe('NavBar', () => {
     renderNav('/patient');
     expect(screen.getByRole('link', { name: 'My Records' })).toHaveAttribute('aria-current', 'page');
     expect(screen.getByRole('link', { name: 'Home' })).not.toHaveAttribute('aria-current');
+  });
+
+  it('nav-links panel carries aria-hidden when menu is closed', () => {
+    renderNav();
+    const panel = document.getElementById('nav-links');
+    expect(panel).toHaveAttribute('aria-hidden', 'true');
+  });
+
+  it('nav-links panel removes aria-hidden when menu is open', () => {
+    renderNav();
+    fireEvent.click(screen.getByLabelText('Open menu'));
+    const panel = document.getElementById('nav-links');
+    expect(panel).not.toHaveAttribute('aria-hidden');
+  });
+
+  it('hamburger aria-expanded reflects open/closed state', () => {
+    renderNav();
+    const btn = screen.getByLabelText('Open menu');
+    expect(btn).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(btn);
+    expect(screen.getByLabelText('Close menu')).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  it('hamburger button references nav-links via aria-controls', () => {
+    renderNav();
+    expect(screen.getByLabelText('Open menu')).toHaveAttribute('aria-controls', 'nav-links');
+  });
+
+  it('nav has accessible name via aria-label', () => {
+    renderNav();
+    expect(screen.getByRole('navigation', { name: 'Main navigation' })).toBeInTheDocument();
   });
 
   describe('wallet indicator', () => {
