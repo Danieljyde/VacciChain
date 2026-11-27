@@ -42,6 +42,28 @@ describe('NavBar', () => {
     expect(screen.getByLabelText('Open menu')).toBeInTheDocument();
   });
 
+  it('moves focus into the menu when opened and restores to hamburger when closed', () => {
+    renderNav();
+    const hamburger = screen.getByLabelText('Open menu');
+    fireEvent.click(hamburger);
+    expect(document.activeElement).not.toBe(hamburger);
+    expect(document.activeElement).toBe(
+      screen.getByRole('link', { name: 'Home' }),
+    );
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(document.activeElement).toBe(hamburger);
+  });
+
+  it('nav links are keyboard focusable', () => {
+    renderNav();
+    const links = screen.getAllByRole('link');
+    links.forEach((link) => {
+      link.focus();
+      expect(document.activeElement).toBe(link);
+    });
+  });
+
   it('marks the active link with aria-current="page"', () => {
     renderNav('/patient');
     expect(screen.getByRole('link', { name: 'My Records' })).toHaveAttribute('aria-current', 'page');
