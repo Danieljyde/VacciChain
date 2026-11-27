@@ -39,6 +39,12 @@ const schema = z.object({
 
   // Indexer
   EVENT_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(15000),
+  // Maximum number of consecutive failed poll attempts before giving up (bounded retries)
+  EVENT_POLL_MAX_RETRIES: z.coerce.number().int().nonnegative().default(5),
+  // Base delay for exponential backoff between failed poll attempts
+  EVENT_POLL_BACKOFF_BASE_MS: z.coerce.number().int().positive().default(500),
+  // Upper bound for exponential backoff delay between failed poll attempts
+  EVENT_POLL_BACKOFF_MAX_MS: z.coerce.number().int().positive().default(30000),
   DATABASE_PATH: z.string().default('/data/vaccichain.db'),
 
   // Vaccination list pagination (#44)
@@ -61,6 +67,12 @@ const schema = z.object({
   // 'memory' is single-instance only; 'redis' is required for multi-instance.
   NONCE_STORE_BACKEND: z.enum(['memory', 'redis']).default('memory'),
   NONCE_STORE_REDIS_URL: z.string().url().optional(),
+
+  // Database migrations directory (repeatable, reversible schema upgrades)
+  MIGRATIONS_DIR: z.string().min(1).default('./migrations'),
+
+  // Graceful shutdown: maximum time to drain in-flight work before forcing exit
+  SHUTDOWN_TIMEOUT_MS: z.coerce.number().int().positive().default(10000),
 }).superRefine((val, ctx) => {
   if (val.VACCINATION_DEFAULT_PAGE_SIZE > val.VACCINATION_MAX_PAGE_SIZE) {
     ctx.addIssue({
