@@ -17,6 +17,7 @@ const eventsRoutes = require('./routes/events');
 const patientRoutes = require('./routes/patient');
 const consentRoutes = require('./routes/consent');
 const onboardingRoutes = require('./routes/onboarding');
+const analyticsProxyRoutes = require('./routes/analyticsProxy');
 const apiVersion = require('./middleware/apiVersion');
 const securityHeaders = require('./middleware/securityHeaders');
 const { getRpcServer } = require('./stellar/soroban');
@@ -159,6 +160,7 @@ v1.use('/patient', patientRoutes);
 v1.use('/patient', consentRoutes);
 v1.use('/events', eventsRoutes);
 v1.use('/onboarding', onboardingRoutes);
+v1.use('/analytics', analyticsProxyRoutes);
 app.use('/v1', v1);
 
 // Legacy unversioned routes — 308 redirect to /v1/ with Deprecation header
