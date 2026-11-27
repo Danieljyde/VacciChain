@@ -7,6 +7,7 @@
 const StellarSdk = require('@stellar/stellar-sdk');
 const { upsertEvents, getLatestLedger } = require('./db');
 const { invalidateCache } = require('../stellar/issuerCache');
+const { setGauge } = require('../metrics');
 const config = require('../config');
 
 
@@ -180,6 +181,11 @@ async function runPoll() {
     console.warn(`[indexer] Quarantined ${malformed} malformed event(s) at ledger ${startLedger}`);
   }
 
+  // Record successful poll timestamp and latest indexed ledger for SLO alerting
+  // (poller lag / data freshness).
+  setGauge('indexer_last_successful_poll_timestamp_seconds', Math.floor(Date.now() / 1000));
+  setGauge('indexer_latest_indexed_ledger', getLatestLedger());
+
   if (valid.length) {
     try {
       upsertEvents(valid);
@@ -191,6 +197,8 @@ async function runPoll() {
       }
       return;
     }
+
+    setGauge('indexer_latest_indexed_ledger', getLatestLedger());
 
     if (process.env.NODE_ENV !== 'test') {
       console.log(`[indexer] Stored ${valid.length} new event(s) from ledger ${startLedger}`);
