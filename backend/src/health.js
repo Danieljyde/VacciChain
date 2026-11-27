@@ -8,6 +8,7 @@ let lastProbeDurationMs = null;
 let lastProbeError = null;
 let probeSuccessCount = 0;
 let probeFailureCount = 0;
+let dbInitialized = false;
 
 function getHealthStatus() {
   const status = sorobanHealthy ? 'ok' : 'degraded';
@@ -43,6 +44,21 @@ function getHealthMetrics() {
       soroban_probe_success_total: probeSuccessCount,
       soroban_probe_failure_total: probeFailureCount,
     },
+  };
+}
+
+function getReadinessStatus() {
+  const checks = {
+    db: dbInitialized ? 'ok' : 'unavailable',
+    soroban: sorobanHealthy ? 'ok' : 'unavailable',
+  };
+  const ready = dbInitialized && sorobanHealthy;
+  return {
+    status: ready ? 'ready' : 'not_ready',
+    ready,
+    checks,
+    uptime: Number(process.uptime().toFixed(3)),
+    lastProbeAt: lastProbeAt ? lastProbeAt.toISOString() : null,
   };
 }
 
@@ -87,10 +103,16 @@ function setSorobanHealthy(value) {
   lastProbeAt = new Date();
 }
 
+function setDbInitialized(value) {
+  dbInitialized = Boolean(value);
+}
+
 module.exports = {
   getHealthStatus,
   getHealthMetrics,
+  getReadinessStatus,
   startHealthProbe,
   setSorobanHealthy,
+  setDbInitialized,
   _getLastProbeAt: () => lastProbeAt,
 };
