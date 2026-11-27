@@ -13,6 +13,7 @@ import FreighterBanner from './components/FreighterBanner';
 import DemoBanner from './components/DemoBanner';
 import NavBar from './components/NavBar';
 import SkipToContent from './components/SkipToContent';
+import NotFoundPage from './pages/NotFoundPage';
 
 export default function App() {
   const [dark, setDark] = useDarkMode();
@@ -41,6 +42,7 @@ export default function App() {
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/apply" element={<IssuerOnboarding />} />
           <Route path="/analytics" element={<AnalyticsDashboard />} />
+          <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </main>
     </AuthProvider>
