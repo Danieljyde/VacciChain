@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../hooks/useFreighter';
 
+import { pageContainerWide } from '../layout.js';
+
 const ANALYTICS_BASE = import.meta.env.VITE_ANALYTICS_URL || 'http://localhost:8001';
 const REFRESH_INTERVAL = 60_000;
 
 const s = {
-  page: { maxWidth: 900, width: '100%', margin: '2rem auto', padding: '0 1rem', boxSizing: 'border-box' },
   header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '0.5rem' },
   h2: { color: '#e2e8f0', margin: 0 },
   refreshInfo: { color: '#64748b', fontSize: '0.8rem' },
@@ -151,14 +152,14 @@ export default function AnalyticsDashboard() {
 
   if (role !== 'issuer') {
     return (
-      <div style={s.page}>
+      <div style={{ ...pageContainerWide, marginTop: '2rem', marginBottom: '2rem' }}>
         <p style={{ color: '#f87171' }}>Access restricted to authorized issuers.</p>
       </div>
     );
   }
 
   return (
-    <div style={s.page}>
+    <div style={{ ...pageContainerWide, marginTop: '2rem', marginBottom: '2rem' }}>
       <div style={s.header}>
         <h2 style={s.h2}>📊 Analytics Dashboard</h2>
         <span style={s.refreshInfo} aria-live="polite">
