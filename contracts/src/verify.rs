@@ -3,23 +3,37 @@ use crate::storage::{DataKey, VaccinationRecord};
 
 const MAX_BATCH_SIZE: u32 = 100;
 
-/// Explicit outcome of a vaccination verification query.
+/// Storage lifecycle assumptions for verification.
 ///
-/// This enum exists so that callers cannot collapse a failure or a missing
-/// record into a positive verification result. Only `Valid` may be treated as
-/// evidence of vaccination; every other variant must be surfaced to the user
-/// as "not verified" and must never be interpreted as a medical determination.
-#[contracttype]
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum VerificationStatus {
-    /// At least one active (non-revoked) record exists for the wallet.
-    Valid,
-    /// The wallet has records, but all of them have been revoked.
-    Revoked,
-    /// No records exist for the wallet (unknown or never vaccinated).
-    Absent,
-    /// The data could not be read (storage/RPC failure). Never treat as Valid.
-    Unavailable,
+/// - `DataKey::PatientTokens(wallet)` is a persistent entry holding the wallet's
+///   token index. If it is absent (never written) or has expired (TTL elapsed),
+///   the wallet is treated as having no records: verification returns
+///   `(false, [], [])`. Absence of the index is never interpreted as
+///   authorization.
+/// - `DataKey::Token(tid)` is a persistent entry holding a `VaccinationRecord`.
+///   If an individual token entry is missing or expired, it is skipped; the
+///   remaining tokens are still evaluated. A missing token never counts as an
+///   active (authorized) record.
+/// - TTL extension is the responsibility of the write paths (e.g. record
+///   issuance/revocation) which must call `extend_ttl` on both the token entry
+///   and the patient index. Verification is read-only and does not extend TTLs,
+///   so callers must not rely on a verify call to keep entries alive.
+/// - Authorization never fails open: any missing/expired state yields a
+///   non-authorized result (`has_active == false`), never `true`.
+const _: () = ();
+
+/// Distinguishes "wallet has no records" from "storage entry is missing or expired".
+///
+/// Returns `true` when the wallet's `PatientTokens` index entry is absent from
+/// persistent storage (either never written or expired). In both cases the
+/// caller must treat the wallet as unvaccinated; this helper exists only so
+/// callers/tests can observe the difference between an empty index and a
+/// missing/expired one.
+pub fn patient_index_missing(env: &Env, wallet: &Address) -> bool {
+    env.storage()
+        .persistent()
+        .get::<DataKey, Vec<u64>>(&DataKey::PatientTokens(wallet.clone()))
+        .is_none()
 }
 
 /// Per-vaccine dose completion summary returned by verify_vaccination.
@@ -83,17 +97,16 @@ pub fn batch_verify(env: &Env, wallets: Vec<Address>) -> Vec<(Address, Verificat
 ///   - VerificationStatus: explicit outcome (never collapse failures into Valid)
 ///   - Vec<VaccinationRecord>: active vaccination records
 ///   - Vec<DoseStatus>: per-vaccine dose completion summary
-pub fn verify_vaccination(env: &Env, wallet: Address) -> (VerificationStatus, Vec<VaccinationRecord>, Vec<DoseStatus>) {
-    // A missing PatientTokens entry means the wallet has no records (Absent).
-    // Any read failure is surfaced as Unavailable rather than silently treated
-    // as an empty (and therefore non-positive) result.
+pub fn verify_vaccination(env: &Env, wallet: Address) -> (bool, Vec<VaccinationRecord>, Vec<DoseStatus>) {
+    // Missing or expired patient index: treat as "no records". This is a
+    // non-authorized result and must never be interpreted as authorized.
     let tokens: Vec<u64> = match env
         .storage()
         .persistent()
-        .get(&DataKey::PatientTokens(wallet.clone()))
+        .get::<DataKey, Vec<u64>>(&DataKey::PatientTokens(wallet.clone()))
     {
         Some(tokens) => tokens,
-        None => return (VerificationStatus::Absent, Vec::new(env), Vec::new(env)),
+        None => return (false, Vec::new(env), Vec::new(env)),
     };
 
     if tokens.is_empty() {
@@ -105,16 +118,23 @@ pub fn verify_vaccination(env: &Env, wallet: Address) -> (VerificationStatus, Ve
     let mut has_revoked = false;
 
     // Load all active (non-revoked) records for the wallet.
+    // Missing or expired token entries are skipped explicitly: they are never
+    // counted as active records, so authorization cannot fail open.
     for i in 0..tokens.len() {
         let tid = tokens.get(i).unwrap();
-        match env.storage().persistent().get::<DataKey, VaccinationRecord>(&DataKey::Token(tid)) {
+        match env
+            .storage()
+            .persistent()
+            .get::<DataKey, VaccinationRecord>(&DataKey::Token(tid))
+        {
             Some(record) => {
-                if record.revoked {
-                    has_revoked = true;
-                } else {
+                if !record.revoked {
                     has_active = true;
                     records.push_back(record);
                 }
+            }
+            None => {
+                // Token entry absent or expired; skip without granting access.
             }
             // A token is referenced but its record cannot be read: the data is
             // unavailable. Never fall through to a positive result.
